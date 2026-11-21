@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CamLens - Fullscreen Camera & Google Lens Trigger</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Fullscreen Shutter Flash Effect -->
+  <div id="shutterFlash"></div>
+
+  <!-- Fullscreen Camera Viewport -->
+  <div class="fullscreen-viewport" id="viewport">
+    <!-- Hardware Camera Stream -->
+    <img id="streamImg" alt="Live Camera Stream" style="display: none;" crossorigin="anonymous">
+    <video id="remoteVideo" autoplay playsinline muted style="display: none;"></video>
+    <canvas id="captureCanvas" style="display: none;"></canvas>
+
+    <!-- Top-Right Minimal Floating Toolbar -->
+    <div class="floating-top-bar">
+      <div id="statusPill" class="minimal-pill">
+        <span class="status-dot"></span>
+        <span id="statusLabel">Waiting for Phone...</span>
+      </div>
+
+      <!-- QR Code / Scanner Toggle -->
+      <button id="btnQrCode" class="icon-btn" title="QR Code: Connect Phone">
+        <svg viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 17h2v2h-2zM19 19h2v2h-2zM17 13h4v2h-4zM19 15h2v4h-2z"/></svg>
+      </button>
+
+      <!-- Rotate 90 Degrees -->
+      <button id="btnRotate" class="icon-btn" title="Rotate 90 Degrees">
+        <svg viewBox="0 0 24 24"><path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.01L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c3.37 0 6.09 2.72 6.09 6.09s-2.72 6.09-6.09 6.09v2c4.48 0 8.09-3.61 8.09-8.09S17.48 4.07 13 4.07z"/></svg>
+      </button>
+
+      <!-- Flip Camera -->
+      <button id="btnFlipCamera" class="icon-btn" title="Flip Camera">
+        <svg viewBox="0 0 24 24"><path d="M9 3L5 6.99h3V14h2V6.99h3L9 3zm7 14.01V10h-2v7.01h-3L15 21l4-3.99h-3z"/></svg>
+      </button>
+
+      <!-- Torch / Flashlight -->
+      <button id="btnTorch" class="icon-btn" title="Toggle Flashlight / Torch">
+        <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l3-8z"/></svg>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button id="btnFullscreen" class="icon-btn" title="Toggle Fullscreen">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
+    </div>
+
+    <!-- Unified Single QR Connection Card -->
+    <div id="qrModal" class="floating-dialog">
+      <div class="dialog-header">
+        <div class="dialog-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/>
+          </svg>
+          Connect Phone Camera
+        </div>
+        <button id="btnCloseQrModal" class="dialog-close" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="qr-container">
+        <div class="qr-card">
+          <canvas id="qrCanvas"></canvas>
+        </div>
+        
+        <div id="cardStatusPill" class="card-status-pill">
+          <span class="status-dot"></span>
+          <span id="cardStatusText">Scan QR code with your phone camera</span>
+        </div>
+      </div>
+
+      <div class="connect-options">
+        <div class="wifi-input-row">
+          <input type="text" id="phoneIpInput" placeholder="http://192.168.1.X:8080" />
+          <button id="btnConnectWifi" class="btn-connect-wifi" title="Connect to phone IP">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.74 0 7.15 1.48 9.68 3.89L12 19.34 2.32 11.39C4.85 8.98 8.26 7.5 12 7.5z"/>
+            </svg>
+            Connect
+          </button>
+        </div>
+
+        <button id="btnAutoScan" class="btn-scan-wifi" title="Auto-scan Wi-Fi network for phone">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+          Auto-Scan Wi-Fi for Phone
+        </button>
+
+        <button id="btnQuickUsb" class="btn-connect-usb">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07c.6-.35 1-.99 1-1.73 0-1.1-.9-2-2-2s-2 .9-2 2c0 .74.4 1.38 1 1.73V13c0 1.1.9 2 2 2h3v3.13c-.6.36-1 .99-1 1.74 0 1.1.9 2 2 2s2-.9 2-2c0-.75-.4-1.38-1-1.74V15h3c1.1 0 2-.9 2-2v-2h1V7h-4z"/>
+          </svg>
+          Or Connect via USB Cable
+        </button>
+      </div>
+    </div>
+
+    <!-- Centered Floating TRIGGER & AI Prompt Bar -->
+    <div class="floating-trigger-container">
+      <div class="trigger-prompt-bar">
+        <input type="text" id="aiPromptInput" placeholder="Ask AI: What is this? Explain..." value="What is in my screen? Explain in detail" />
+        <div class="prompt-pills">
+          <button class="pill-btn active" data-q="What is in my screen? Explain in detail">🔍 Explain</button>
+          <button class="pill-btn" data-q="Solve and explain this problem step by step">📐 Solve</button>
+          <button class="pill-btn" data-q="Read and transcribe all text in this image">📝 Read Text</button>
+        </div>
+      </div>
+      <button id="btnTrigger" class="btn-trigger" title="Capture frame and get Google Lens AI answer">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+        </svg>
+        TRIGGER
+        <span class="trigger-hotkey">SPACE</span>
+      </button>
+    </div>
+
+    <!-- Instant Results Drawer (Liquid Glass) -->
+    <div id="resultsDrawer" class="results-drawer">
+      <div class="results-drawer-inner">
+        <div class="results-header">
+          <div class="results-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            Instant Results
+          </div>
+          <button id="btnCloseResults" class="dialog-close" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="results-preview-card">
+          <img id="resultsPreviewImg" src="" alt="Captured Frame" />
+          <div class="results-badge">
+            <span class="status-dot"></span>
+            <span id="resultsStatusText">Copied to Clipboard</span>
+          </div>
+        </div>
+
+        <div class="results-actions">
+          <a id="btnLensResult" href="#" target="_blank" class="result-action-btn primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="3.2"/>
+              <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+            </svg>
+            <span>Google Lens AI Answer</span>
+          </a>
+
+          <a id="btnGeminiResult" href="https://gemini.google.com" target="_blank" class="result-action-btn gemini">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"/>
+            </svg>
+            <span>Ask Gemini AI (Ctrl+V)</span>
+          </a>
+
+          <a id="btnBingResult" href="#" target="_blank" class="result-action-btn bing">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <span>Bing Visual Search</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast">
+    <span id="toastMsg">Ready</span>
+  </div>
+
+  <script src="vendor/qrcode.js"></script>
+  <script src="laptop.js"></script>
+</body>
+</html>

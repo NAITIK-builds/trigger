@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CamLens Connect</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background: #0a0e14;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: rgba(18, 24, 34, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 32px 24px;
+      max-width: 380px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .icon-box {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #4285f4 0%, #ea4335 40%, #fbbc05 70%, #34a853 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .icon-box svg {
+      width: 32px;
+      height: 32px;
+      fill: #ffffff;
+    }
+    h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    p {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+    .btn-action {
+      background: #10b981;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+      transition: all 0.2s;
+    }
+    .btn-action svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: 0 auto;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="icon-box">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+      </svg>
+    </div>
+
+    <!-- State A: Checking installed app -->
+    <div id="checkingState">
+      <h2>Connecting to Laptop...</h2>
+      <div class="status-badge" style="margin-top: 10px;">
+        <span class="status-dot"></span>
+        <span>Pairing via Wi-Fi</span>
+      </div>
+      <p style="margin-top: 12px;">Opening CamLens app...</p>
+    </div>
+
+    <!-- State B: Not installed -> Auto-downloading APK -->
+    <div id="downloadState" class="hidden">
+      <h2>Downloading CamLens APK...</h2>
+      <p>App is downloading to your phone. Follow these quick steps:</p>
+      
+      <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; text-align: left; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin: 10px 0;">
+        1. Tap the downloaded file in your notification bar.<br>
+        2. Tap <strong>Install</strong> (Allow unknown apps if prompted).<br>
+        3. Open the <strong>CamLens</strong> app!
+      </div>
+
+      <a href="/CamLens.apk" class="btn-action" download id="btnDownloadApk">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Download CamLens.apk
+      </a>
+
+      <button id="btnRetryOpen" class="btn-action green" style="margin-top: 8px;">
+        <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+        App Installed? Tap to Open & Pair
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const laptopOrigin = window.location.origin;
+    const apkDownloadUrl = laptopOrigin + "/CamLens.apk";
+
+    // 1. Announce phone's IP to the laptop server over Wi-Fi
+    fetch('/api/phone-announce', { method: 'POST' }).catch(() => {});
+
+    // 2. Track whether the native app opens
+    let appOpened = false;
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        appOpened = true; // App opened successfully, do not trigger download!
+      }
+    });
+
+    // 3. Try opening the installed app using pure custom scheme (NEVER redirects to Play Store!)
+    const directScheme = "camlens://pair?host=" + encodeURIComponent(laptopOrigin);
+    window.location.href = directScheme;
+
+    const btnRetryOpen = document.getElementById('btnRetryOpen');
+    if (btnRetryOpen) {
+      btnRetryOpen.addEventListener('click', () => {
+        fetch('/api/phone-announce', { method: 'POST' }).catch(() => {});
+        window.location.href = directScheme;
+      });
+    }
+
+    // 4. If app is not installed (page stays visible after 1.1s), auto-start APK download!
+    setTimeout(() => {
+      if (!appOpened) {
+        document.getElementById('checkingState').classList.add('hidden');
+        document.getElementById('downloadState').classList.remove('hidden');
+
+        // Automatically start downloading the APK directly from the laptop
+        window.location.href = apkDownloadUrl;
+      }
+    }, 1100);
+  </script>
+
+</body>
+</html>
